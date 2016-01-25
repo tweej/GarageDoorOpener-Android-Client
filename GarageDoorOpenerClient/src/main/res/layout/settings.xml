@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <EditText
+        android:id="@+id/ServerIPAddress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Server IP Address (aaa.bbb.ccc.ddd)"
+        android:inputType="number"
+        android:digits="0123456789." />
+
+    <EditText
+        android:id="@+id/ServerPortNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Server TCP Port Number (1-65535)"
+        android:inputType="number"
+        android:digits="0123456789" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="30dp"
+        android:text="Import Certificate"
+        android:onClick="showFileChooser" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Certificate MD5 Fingerprint:"
+        android:textAlignment="center" />
+
+    <TextView
+        android:id="@+id/MD5Fingerprint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/empty_fingerprint"
+        android:textStyle="bold"
+        android:textAlignment="center" />
+
+    <TextView
+        android:id="@+id/CertInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAlignment="center"
+        android:textColor="@android:color/holo_red_dark"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="30dp"
+        android:gravity="center"
+        android:textColor="@android:color/holo_red_dark"
+        android:text="Warning: If an attacker has physical access to this device, setting up a MITM scenario is possible by replacing the imported certificate with a fraudulent one."/>
+
+    <Button
+        android:id="@+id/save_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="50dp"
+        android:text="Save"
+        android:onClick="saveSettings" />/>
+
+
+</LinearLayout>
