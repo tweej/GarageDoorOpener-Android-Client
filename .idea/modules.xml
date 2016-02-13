@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/GarageDoorOpenerClient.iml" filepath="$PROJECT_DIR$/GarageDoorOpenerClient.iml" />
-      <module fileurl="file://$PROJECT_DIR$/GarageDoorOpenerClient/GarageDoorOpenerClient-GarageDoorOpenerClient.iml" filepath="$PROJECT_DIR$/GarageDoorOpenerClient/GarageDoorOpenerClient-GarageDoorOpenerClient.iml" />
+      <module fileurl="file://$PROJECT_DIR$/GarageDoorOpener-Android-Client.iml" filepath="$PROJECT_DIR$/GarageDoorOpener-Android-Client.iml" />
+      <module fileurl="file://$PROJECT_DIR$/GarageDoorOpenerClient/GarageDoorOpenerClient.iml" filepath="$PROJECT_DIR$/GarageDoorOpenerClient/GarageDoorOpenerClient.iml" />
     </modules>
   </component>
 </project>

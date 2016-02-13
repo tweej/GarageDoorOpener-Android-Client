@@ -38,6 +38,9 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Random;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
@@ -63,9 +66,27 @@ public class KeypadActivity extends Activity implements
     private Button   submitButton = null; // The button which submits the code to the server
     private TextView code         = null; // The TextView which will contain the user-entered code
 
+    // Stored settings like the server's public key, IP address, and port number
     private SharedPreferences sharedPref = null;
 
-    AsyncTask<String, Void, Void> submitCode_Task = null;
+    // Type for the state of the socket used to connect to the server, and a synchronization lock
+    // to be used for changing the current state
+    private enum State { DISCONNECTED, CONNECTING, CONNECTED }
+    private State state = State.DISCONNECTED;
+    private final Object stateLock = new Object();
+
+    // Events that can be passed to the AsyncTask managing the socket
+    public enum EventType { MAINTAIN, SUBMIT }
+    private class Event {
+        Event(EventType type)              { this.type = type; }
+        Event(EventType type, String code) { this.type = type; this.code = code; }
+        public EventType type;
+        public String    code;
+    }
+
+    // The event queue shared by the UI thread and the AsyncTask managing the socket
+    private BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>(10);
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -161,6 +182,21 @@ public class KeypadActivity extends Activity implements
             Button b = (Button)v;
             code.append(b.getText());// TODO: Only if TextView is not already full (in which case, we should have already set the buttons to not be clickable)
             // TODO: Only enable submit button if there is a code in the TextView to submit
+
+            synchronized (stateLock) {
+                if(state == State.DISCONNECTED) {
+                    state = State.CONNECTING;
+                    new connectAndMaintainTask().execute();
+                }
+                // MAINTAIN events not processed until after CONNECTED
+                // Technically these could leak across AsyncTasks as written, but the window is
+                // small, and the consequence is almost entirely unnoticeable.
+                else if (state == State.CONNECTED) {
+                    try {
+                        eventQueue.put(new Event(EventType.MAINTAIN));
+                    } catch (InterruptedException e) {}
+                }
+            }
         }
         else {
             Log.wtf("MyApp", "onClick called with non-Button View");
@@ -207,24 +243,34 @@ public class KeypadActivity extends Activity implements
     public void submitCode(View view) {
         shuffleButtons();
 
-        // We only want a single code submission task at any one time
-        if(submitCode_Task != null) {
-            Log.d("MyApp", "Cancelling current code submission task...");
-            submitCode_Task.cancel(true);
+        synchronized (stateLock) {
+            if (state == State.DISCONNECTED) {
+                state = State.CONNECTING;
+                new connectAndMaintainTask().execute();
+            }
         }
-        Log.d("MyApp", "Connecting...");
-        submitCode_Task = new SubmitCodeTask().execute(code.getText().toString());
+
+       try {
+           eventQueue.put(new Event(EventType.SUBMIT, code.getText().toString()));
+       } catch (InterruptedException e) {}
+
         clearCode(null);
     }
 
     // Clear the contents of the code TextView when the user presses the Clear button
     public void clearCode(View view) { code.setText(""); }
 
-    private class SubmitCodeTask extends AsyncTask<String, Void, Void> {
+
+    private class connectAndMaintainTask extends AsyncTask<Void, Void, Void> {
 
         private Exception exception = null;
 
-        protected Void doInBackground(String... code) {
+        SSLSocket c;
+        BufferedWriter w;
+        BufferedReader r;
+
+        @Override
+        protected Void doInBackground(Void... params) {
             try {
                 TrustManager tm = new X509TrustManager() {
                     @Override
@@ -254,7 +300,7 @@ public class KeypadActivity extends Activity implements
                             try {
                                 cert.verify(publicKey); // Verifying by public key
                             } catch (NoSuchAlgorithmException | InvalidKeyException |
-                                     NoSuchProviderException  | SignatureException e) {
+                                    NoSuchProviderException  | SignatureException e) {
                                 Log.w("MyApp", e.toString());
                                 throw new CertificateException("Could not verify server is who it claims to be!");
                             }
@@ -269,35 +315,66 @@ public class KeypadActivity extends Activity implements
 
                 // TLSv1.2 supported in API 16+; enabled by default in API 20+
                 SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
-                sslContext.init(null, new TrustManager[] { tm }, null);
+                sslContext.init(null, new TrustManager[]{tm}, null);
 
                 Log.d("MyApp", "Creating socket...");
-                SSLSocket c = (SSLSocket) sslContext.getSocketFactory().createSocket(
+                c = (SSLSocket) sslContext.getSocketFactory().createSocket(
                         InetAddress.getByName(sharedPref.getString("IP", "")).getHostAddress(),
                         Integer.parseInt(sharedPref.getString("PORT", "")));
 
-                c.setEnabledProtocols(new String[] {"TLSv1.2"});
+                c.setEnabledProtocols(new String[]{"TLSv1.2"});
 
                 Log.d("MyApp", "Starting handshake...");
                 c.startHandshake();
 
-                BufferedWriter w = new BufferedWriter(new OutputStreamWriter(c.getOutputStream()));
-                BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream()));
+                w = new BufferedWriter(new OutputStreamWriter(c.getOutputStream()));
+                r = new BufferedReader(new InputStreamReader(c.getInputStream()));
 
-                Log.d("MyApp", "Writing the code on the socket...");
-                w.write(code[0].length());
-                w.write(code[0], 0, code[0].length());
-                w.newLine();
+                Log.d("MyApp", "Connected!");
 
-                Log.d("MyApp", "Flushing socket buffer...");
-                w.flush();
+                synchronized (stateLock) { state = State.CONNECTED; }
 
-                Log.d("MyApp", "Closing socket...");
-                w.close(); r.close(); c.close();
+                while(true) {
+                    Event e = eventQueue.poll(15, TimeUnit.SECONDS);
+
+                    if(e == null) break; // Timeout
+                    else if(e.type == EventType.MAINTAIN) { // Allow another 15s before closing
+                        Log.d("MyApp", "MAINTAIN received");
+                        continue;
+                    }
+                    else if(e.type == EventType.SUBMIT) {
+                            Log.d("MyApp", "Writing the code on the socket...");
+                            w.write(e.code.length());
+                            w.write(e.code, 0, e.code.length());
+                            w.newLine();
+
+                            Log.d("MyApp", "Flushing socket buffer...");
+                            w.flush();
+                            break;
+                    } else {
+                        Log.wtf("MyApp", "Unrecognized EventType!");
+                        break;
+                    }
+                }
 
             } catch (Exception e) {
                 // Handle exceptions in onPostExecute()
                 this.exception = e;
+            } finally {
+                synchronized (stateLock) {
+                    // A SUBMIT event could remain on the queue if we were CONNECTING when the
+                    // submit button was pressed. We should not attempt to immediately handle this
+                    // queued event the next time the task is run.
+                    if(state == State.CONNECTING) eventQueue.clear();
+
+                    state = State.DISCONNECTED;
+
+                    Log.d("MyApp", "Closing socket...");
+                    try { if(c != null) c.close(); }
+                    catch (IOException ex) {
+                        Log.e("MyApp", "Error closing socket: " + ex.toString());
+                    }
+                }
             }
 
             return null;
@@ -342,9 +419,6 @@ public class KeypadActivity extends Activity implements
                             "Unexpected exception! Please report this!", Toast.LENGTH_LONG).show();
                 }
             }
-
-            // No need to attempt to cancel a completed AsyncTask on next submit
-            submitCode_Task = null;
         }
     }
 
