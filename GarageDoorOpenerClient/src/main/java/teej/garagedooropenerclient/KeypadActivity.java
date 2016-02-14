@@ -18,12 +18,10 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.ConnectException;
 import java.net.InetAddress;
@@ -39,7 +37,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLContext;
@@ -51,10 +49,9 @@ import javax.net.ssl.X509TrustManager;
 // TODO:
 //  Prepare for release: http://developer.android.com/tools/publishing/preparing.html
 //  Dump log(cat) to file for reporting (new permission required)
-//  Create the socket when a user starts entering a code, and close it after non-submission timeout
-//    in order to reduce latency
 //  Get authorization result from server and notify user?
 //  Ensure certificate falls within validity range for every submittal, not just when imported?
+//  Socket connection timeout
 
 public class KeypadActivity extends Activity implements
         View.OnClickListener,                // For buttons 0-9
@@ -69,11 +66,8 @@ public class KeypadActivity extends Activity implements
     // Stored settings like the server's public key, IP address, and port number
     private SharedPreferences sharedPref = null;
 
-    // Type for the state of the socket used to connect to the server, and a synchronization lock
-    // to be used for changing the current state
-    private enum State { DISCONNECTED, CONNECTING, CONNECTED }
-    private State state = State.DISCONNECTED;
-    private final Object stateLock = new Object();
+    // Type for the state of the socket used to connect to the server
+    private enum State { CONNECTING, CONNECTED, DISCONNECTING, DISCONNECTED }
 
     // Events that can be passed to the AsyncTask managing the socket
     public enum EventType { MAINTAIN, SUBMIT }
@@ -85,8 +79,11 @@ public class KeypadActivity extends Activity implements
     }
 
     // The event queue shared by the UI thread and the AsyncTask managing the socket
-    private BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>(10);
+    // Note that it is a SynchronousQueue
+    private BlockingQueue<Event> eventQueue = new SynchronousQueue<>();
 
+    // Reference to the most recently executed task managing the socket connected to the server
+    AsyncTask<Void, Void, Void> cmt_Task = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -183,20 +180,15 @@ public class KeypadActivity extends Activity implements
             code.append(b.getText());// TODO: Only if TextView is not already full (in which case, we should have already set the buttons to not be clickable)
             // TODO: Only enable submit button if there is a code in the TextView to submit
 
-            synchronized (stateLock) {
-                if(state == State.DISCONNECTED) {
-                    state = State.CONNECTING;
-                    new connectAndMaintainTask().execute();
-                }
-                // MAINTAIN events not processed until after CONNECTED
-                // Technically these could leak across AsyncTasks as written, but the window is
-                // small, and the consequence is almost entirely unnoticeable.
-                else if (state == State.CONNECTED) {
-                    try {
-                        eventQueue.put(new Event(EventType.MAINTAIN));
-                    } catch (InterruptedException e) {}
-                }
+            if(cmt_Task == null ||
+               ((connectAndMaintainTask)cmt_Task).getState() == State.DISCONNECTED ||
+               ((connectAndMaintainTask)cmt_Task).getState() == State.DISCONNECTING) {
+                cmt_Task = new connectAndMaintainTask().execute();
             }
+
+            try {
+                eventQueue.offer(new Event(EventType.MAINTAIN), 50, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {}
         }
         else {
             Log.wtf("MyApp", "onClick called with non-Button View");
@@ -243,16 +235,17 @@ public class KeypadActivity extends Activity implements
     public void submitCode(View view) {
         shuffleButtons();
 
-        synchronized (stateLock) {
-            if (state == State.DISCONNECTED) {
-                state = State.CONNECTING;
-                new connectAndMaintainTask().execute();
-            }
+        if(cmt_Task == null ||
+           ((connectAndMaintainTask)cmt_Task).getState() == State.DISCONNECTED ||
+           ((connectAndMaintainTask)cmt_Task).getState() == State.DISCONNECTING) {
+            cmt_Task = new connectAndMaintainTask().execute();
         }
 
-       try {
-           eventQueue.put(new Event(EventType.SUBMIT, code.getText().toString()));
-       } catch (InterruptedException e) {}
+        try {
+            eventQueue.offer(
+                    new Event(EventType.SUBMIT, code.getText().toString()),
+                    2, TimeUnit.SECONDS); // blocks, deliberately!
+        } catch (InterruptedException e) {}
 
         clearCode(null);
     }
@@ -265,9 +258,20 @@ public class KeypadActivity extends Activity implements
 
         private Exception exception = null;
 
-        SSLSocket c;
-        BufferedWriter w;
-        BufferedReader r;
+        private SSLSocket c;
+        private BufferedWriter w;
+//        private BufferedReader r; Currently Unused
+
+        // The current state of this task, and a synchronization lock for it
+        private State state = State.CONNECTING;
+        private final Object stateLock = new Object();
+
+        public State getState() {
+            synchronized (stateLock) {
+                return state;
+            }
+        }
+
 
         @Override
         protected Void doInBackground(Void... params) {
@@ -328,7 +332,7 @@ public class KeypadActivity extends Activity implements
                 c.startHandshake();
 
                 w = new BufferedWriter(new OutputStreamWriter(c.getOutputStream()));
-                r = new BufferedReader(new InputStreamReader(c.getInputStream()));
+//                r = new BufferedReader(new InputStreamReader(c.getInputStream())); Currently Unused
 
                 Log.d("MyApp", "Connected!");
 
@@ -336,13 +340,20 @@ public class KeypadActivity extends Activity implements
 
                 while(true) {
                     Event e = eventQueue.poll(15, TimeUnit.SECONDS);
+                    // Small window here where state is about to be wrong for submitCode and onClick
+                    // and any events they add will be ignored/deleted/cleared
+                    synchronized (stateLock) {
+                        if (e == null) {
+                            state = State.DISCONNECTING;
+                            Log.d("MyApp", "Timeout waiting for MAINTAIN");
+                            break;
+                        } else if (e.type == EventType.MAINTAIN) {
+                            // Allow another 15s before closing
+                            Log.d("MyApp", "MAINTAIN received");
+                            continue;
+                        } else if (e.type == EventType.SUBMIT) {
+                            state = State.DISCONNECTING;
 
-                    if(e == null) break; // Timeout
-                    else if(e.type == EventType.MAINTAIN) { // Allow another 15s before closing
-                        Log.d("MyApp", "MAINTAIN received");
-                        continue;
-                    }
-                    else if(e.type == EventType.SUBMIT) {
                             Log.d("MyApp", "Writing the code on the socket...");
                             w.write(e.code.length());
                             w.write(e.code, 0, e.code.length());
@@ -351,9 +362,11 @@ public class KeypadActivity extends Activity implements
                             Log.d("MyApp", "Flushing socket buffer...");
                             w.flush();
                             break;
-                    } else {
-                        Log.wtf("MyApp", "Unrecognized EventType!");
-                        break;
+                        } else {
+                            state = State.DISCONNECTING;
+                            Log.wtf("MyApp", "Unrecognized EventType!");
+                            break;
+                        }
                     }
                 }
 
@@ -362,11 +375,6 @@ public class KeypadActivity extends Activity implements
                 this.exception = e;
             } finally {
                 synchronized (stateLock) {
-                    // A SUBMIT event could remain on the queue if we were CONNECTING when the
-                    // submit button was pressed. We should not attempt to immediately handle this
-                    // queued event the next time the task is run.
-                    if(state == State.CONNECTING) eventQueue.clear();
-
                     state = State.DISCONNECTED;
 
                     Log.d("MyApp", "Closing socket...");
