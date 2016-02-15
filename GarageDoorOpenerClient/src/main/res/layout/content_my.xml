@@ -34,7 +34,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="0.23"
                 android:id="@+id/clear_button"
-                android:text="Clear"
+                android:text="@string/clear_button"
                 android:clickable="true"
                 android:enabled="true"
                 android:onClick="clearCode" />
@@ -45,7 +45,8 @@
                 android:layout_weight="0.10"
                 android:src="@drawable/ic_menu_moreoverflow_normal_holo_light"
                 android:id="@+id/menu_button"
-                android:onClick="showPopupMenu" />
+                android:onClick="showPopupMenu"
+                android:contentDescription="@string/menu_button_description"/>
 
             <!-- TODO: Red infinite progress bar to draw attention to settings button -->
         </TableRow>
@@ -56,21 +57,21 @@
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B1"
+                android:text="@string/B1"
                 android:id="@+id/button1"
                 android:clickable="true"
                 android:enabled="true" />
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B2"
+                android:text="@string/B2"
                 android:id="@+id/button2"
                 android:clickable="true"
                 android:enabled="true" />
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B3"
+                android:text="@string/B3"
                 android:id="@+id/button3"
                 android:clickable="true"
                 android:enabled="true" />
@@ -82,21 +83,21 @@
             android:layout_weight=".25">
 
             <Button android:layout_height="match_parent"
-                android:text="B4"
+                android:text="@string/B4"
                 android:id="@+id/button4"
                 android:clickable="true"
                 android:enabled="true" />
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B5"
+                android:text="@string/B5"
                 android:id="@+id/button5"
                 android:clickable="true"
                 android:enabled="true" />
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B6"
+                android:text="@string/B6"
                 android:id="@+id/button6"
                 android:clickable="true"
                 android:enabled="true" />
@@ -108,21 +109,21 @@
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B7"
+                android:text="@string/B7"
                 android:id="@+id/button7"
                 android:clickable="true"
                 android:enabled="true" />
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B8"
+                android:text="@string/B8"
                 android:id="@+id/button8"
                 android:clickable="true"
                 android:enabled="true" />
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B9"
+                android:text="@string/B9"
                 android:id="@+id/button9"
                 android:clickable="true"
                 android:enabled="true" />
@@ -134,7 +135,7 @@
 
             <Button
                 android:layout_height="match_parent"
-                android:text="B0"
+                android:text="@string/B0"
                 android:id="@+id/button0"
                 android:clickable="true"
                 android:enabled="true" />
@@ -143,11 +144,11 @@
                 android:layout_width="0px"
                 android:layout_height="match_parent"
                 android:layout_weight=".666"
-                android:text="Submit"
+                android:text="@string/submit_button"
                 android:id="@+id/submit_button"
                 android:clickable="true"
                 android:enabled="true"
-                android:onClick="submitCode"/>
+                android:onClick="submitCode" />
 
         </TableRow>
     </TableLayout>

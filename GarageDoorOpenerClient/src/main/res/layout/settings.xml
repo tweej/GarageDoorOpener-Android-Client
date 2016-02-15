@@ -8,7 +8,7 @@
         android:id="@+id/ServerIPAddress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Server IP Address (aaa.bbb.ccc.ddd)"
+        android:hint="@string/server_ip_hint"
         android:inputType="number"
         android:digits="0123456789." />
 
@@ -16,7 +16,7 @@
         android:id="@+id/ServerPortNumber"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Server TCP Port Number (1-65535)"
+        android:hint="@string/server_port_hint"
         android:inputType="number"
         android:digits="0123456789" />
 
@@ -25,13 +25,13 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="30dp"
-        android:text="Import Certificate"
+        android:text="@string/import_cert_button"
         android:onClick="showFileChooser" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Certificate MD5 Fingerprint:"
+        android:text="@string/cert_fingerprint"
         android:textAlignment="center" />
 
     <TextView
@@ -56,7 +56,7 @@
         android:layout_marginTop="30dp"
         android:gravity="center"
         android:textColor="@android:color/holo_red_dark"
-        android:text="Warning: If an attacker has physical access to this device, setting up a MITM scenario is possible by replacing the imported certificate with a fraudulent one."/>
+        android:text="@string/mitm_warning"/>
 
     <Button
         android:id="@+id/save_button"
@@ -64,8 +64,8 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="50dp"
-        android:text="Save"
-        android:onClick="saveSettings" />/>
+        android:text="@string/save_button"
+        android:onClick="saveSettings" />
 
 
 </LinearLayout>
