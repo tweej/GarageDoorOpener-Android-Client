@@ -57,22 +57,22 @@ public class SettingsActivity extends Activity {
 
         ipAddress = (EditText) findViewById(R.id.ServerIPAddress);
         if(ipAddress == null) {
-            Log.wtf("MyApp", "Could not find ServerIPAddress View");
+            Log.wtf("GDO", "Could not find ServerIPAddress View");
         }
 
         portNumber = (EditText) findViewById(R.id.ServerPortNumber);
         if(portNumber == null) {
-            Log.wtf("MyApp", "Could not find ServerPortNumber View");
+            Log.wtf("GDO", "Could not find ServerPortNumber View");
         }
 
         md5Fingerprint = (TextView) findViewById(R.id.MD5Fingerprint);
         if(md5Fingerprint == null) {
-            Log.wtf("MyApp", "Could not find MD5Fingerprint View");
+            Log.wtf("GDO", "Could not find MD5Fingerprint View");
         }
 
         certInfo = (TextView) findViewById(R.id.CertInfo);
         if(certInfo == null) {
-            Log.wtf("MyApp", "Could not find CertInfo View");
+            Log.wtf("GDO", "Could not find CertInfo View");
         }
 
 
@@ -93,12 +93,12 @@ public class SettingsActivity extends Activity {
                 md5Fingerprint.setText(generateMD5Fingerprint(decoded));
                 md5Fingerprint.setTypeface(null, Typeface.NORMAL);
             } catch (CertificateException e) {
-                Log.wtf("MyApp", e.toString());
+                Log.wtf("GDO", e.toString());
                 Toast.makeText(this,
                         "Error loading certificate! Please report this; it should never happen.",
                         Toast.LENGTH_LONG).show();
             } catch (NoSuchAlgorithmException e) {
-                Log.e("MyApp", e.toString());
+                Log.e("GDO", e.toString());
                 Toast.makeText(this,
                         "MD5 Algorithm not found! Please report this.",
                         Toast.LENGTH_LONG).show();
@@ -129,16 +129,16 @@ public class SettingsActivity extends Activity {
             case FILE_SELECT_CODE:
                 if (resultCode == RESULT_OK) {
                     Uri uri = data.getData(); // Get the Uri of the selected file
-                    Log.d("MyApp", "File Uri: " + uri.toString());
+                    Log.d("GDO", "File Uri: " + uri.toString());
 
                     String path = uri.getPath(); // Get the path
-                    Log.d("MyApp", "File Path: " + path);
+                    Log.d("GDO", "File Path: " + path);
 
                     // Make sure this file is a certificate
                     FileInputStream fis;
                     try { fis = new FileInputStream(path); }
                     catch (FileNotFoundException e) {
-                        Log.d("MyApp", e.toString());
+                        Log.d("GDO", e.toString());
                         Toast.makeText(
                                 this, "Could not read the selected file!", Toast.LENGTH_LONG).show();
                         return;
@@ -150,7 +150,7 @@ public class SettingsActivity extends Activity {
                     try {
                         loadCertificate(new BufferedInputStream(fis));
                     } catch(CertificateException e) {
-                        Log.d("MyApp", e.toString());
+                        Log.d("GDO", e.toString());
                         Toast.makeText(this,
                                 "This file is not a X509 certificate!", Toast.LENGTH_LONG).show();
                         return;
@@ -179,12 +179,12 @@ public class SettingsActivity extends Activity {
                         // TODO: User can import cert and then press return h/w button. If cert is
                         // valid, buttons should be clickable, but they aren't.
                     } catch (IOException e) {
-                        Log.e("MyApp", e.toString());
+                        Log.e("GDO", e.toString());
                         Toast.makeText(
                                 this, "Problem reading certificate file!",
                                 Toast.LENGTH_LONG).show();
                     } catch (NoSuchAlgorithmException e) {
-                        Log.e("MyApp", e.toString());
+                        Log.e("GDO", e.toString());
                         Toast.makeText(
                                 this, "MD5 Algorithm not found! Please report this.",
                                 Toast.LENGTH_LONG).show();
@@ -247,7 +247,7 @@ public class SettingsActivity extends Activity {
         try {
             port = Integer.parseInt(s);
         } catch(NumberFormatException e) {
-            Log.d("MyApp", e.toString());
+            Log.d("GDO", e.toString());
             Toast.makeText(
                     SettingsActivity.this, R.string.invalid_port_number, Toast.LENGTH_LONG).show();
             return false;

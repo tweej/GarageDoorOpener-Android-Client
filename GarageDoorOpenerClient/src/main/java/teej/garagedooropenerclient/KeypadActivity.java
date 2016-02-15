@@ -93,7 +93,7 @@ public class KeypadActivity extends Activity implements
         // Store reference to the TextView which will contain the user-entered code
         code = (TextView) findViewById(R.id.code);
         if( code == null ) {
-            Log.wtf("MyApp", "Could not find code TextView");
+            Log.wtf("GDO", "Could not find code TextView");
             System.exit(1);
         }
 
@@ -106,7 +106,7 @@ public class KeypadActivity extends Activity implements
                 buttons[i].setOnClickListener(this);
             }
             else {
-                Log.wtf("MyApp", "Button not found by id! (button" + i + ")");
+                Log.wtf("GDO", "Button not found by id! (button" + i + ")");
                 System.exit(1);
             }
         }
@@ -114,14 +114,14 @@ public class KeypadActivity extends Activity implements
         // Store reference to the submit button
         submitButton = (Button) findViewById(R.id.submit_button);
         if(submitButton == null) {
-            Log.wtf("MyApp", "Could not find submit button View!");
+            Log.wtf("GDO", "Could not find submit button View!");
             System.exit(1);
         }
 
         // Store reference to the clear button
         clearButton = (Button) findViewById(R.id.clear_button);
         if(clearButton == null) {
-            Log.wtf("MyApp", "Could not find clear button View!");
+            Log.wtf("GDO", "Could not find clear button View!");
             System.exit(1);
         }
 
@@ -191,7 +191,7 @@ public class KeypadActivity extends Activity implements
             } catch (InterruptedException e) {}
         }
         else {
-            Log.wtf("MyApp", "onClick called with non-Button View");
+            Log.wtf("GDO", "onClick called with non-Button View");
         }
     }
 
@@ -209,7 +209,7 @@ public class KeypadActivity extends Activity implements
         int id = item.getItemId();
 
         if(id == R.id.action_settings) {
-            Log.d("MyApp", "Settings button pressed");
+            Log.d("GDO", "Settings button pressed");
             Intent intent = new Intent(this, SettingsActivity.class);
             // TODO Use startActivityForResult
             startActivity(intent);
@@ -295,7 +295,7 @@ public class KeypadActivity extends Activity implements
                             // Just warn in the settings page.
                             server_cert = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(is);
                         } else {
-                            Log.wtf("MyApp", "CERT shared preference is empty!");
+                            Log.wtf("GDO", "CERT shared preference is empty!");
                             throw new CertificateException("CERT shared preference empty");
                         }
 
@@ -307,7 +307,7 @@ public class KeypadActivity extends Activity implements
                                 cert.verify(publicKey); // Verifying by public key
                             } catch (NoSuchAlgorithmException | InvalidKeyException |
                                     NoSuchProviderException  | SignatureException e) {
-                                Log.w("MyApp", e.toString());
+                                Log.w("GDO", e.toString());
                                 throw new CertificateException("Could not verify server is who it claims to be!");
                             }
                         }
@@ -323,20 +323,20 @@ public class KeypadActivity extends Activity implements
                 SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
                 sslContext.init(null, new TrustManager[]{tm}, null);
 
-                Log.d("MyApp", "Creating socket...");
+                Log.d("GDO", "Creating socket...");
                 c = (SSLSocket) sslContext.getSocketFactory().createSocket(
                         InetAddress.getByName(sharedPref.getString("IP", "")).getHostAddress(),
                         Integer.parseInt(sharedPref.getString("PORT", "")));
 
                 c.setEnabledProtocols(new String[]{"TLSv1.2"});
 
-                Log.d("MyApp", "Starting handshake...");
+                Log.d("GDO", "Starting handshake...");
                 c.startHandshake();
 
                 w = new BufferedWriter(new OutputStreamWriter(c.getOutputStream()));
 //                r = new BufferedReader(new InputStreamReader(c.getInputStream())); Currently Unused
 
-                Log.d("MyApp", "Connected!");
+                Log.d("GDO", "Connected!");
 
                 synchronized (stateLock) { state = State.CONNECTED; }
 
@@ -349,26 +349,26 @@ public class KeypadActivity extends Activity implements
                     synchronized (stateLock) {
                         if (e == null) {
                             state = State.DISCONNECTING;
-                            Log.d("MyApp", "Timeout waiting for MAINTAIN");
+                            Log.d("GDO", "Timeout waiting for MAINTAIN");
                             break;
                         } else if (e.type == EventType.MAINTAIN) {
                             // Allow another 15s before closing
-                            Log.d("MyApp", "MAINTAIN received");
+                            Log.d("GDO", "MAINTAIN received");
                             continue;
                         } else if (e.type == EventType.SUBMIT) {
                             state = State.DISCONNECTING;
 
-                            Log.d("MyApp", "Writing the code on the socket...");
+                            Log.d("GDO", "Writing the code on the socket...");
                             w.write(e.code.length());
                             w.write(e.code, 0, e.code.length());
                             w.newLine();
 
-                            Log.d("MyApp", "Flushing socket buffer...");
+                            Log.d("GDO", "Flushing socket buffer...");
                             w.flush();
                             break;
                         } else {
                             state = State.DISCONNECTING;
-                            Log.wtf("MyApp", "Unrecognized EventType!");
+                            Log.wtf("GDO", "Unrecognized EventType!");
                             break;
                         }
                     }
@@ -381,10 +381,10 @@ public class KeypadActivity extends Activity implements
                 synchronized (stateLock) {
                     state = State.DISCONNECTED;
 
-                    Log.d("MyApp", "Closing socket...");
+                    Log.d("GDO", "Closing socket...");
                     try { if(c != null) c.close(); }
                     catch (IOException ex) {
-                        Log.e("MyApp", "Error closing socket: " + ex.toString());
+                        Log.e("GDO", "Error closing socket: " + ex.toString());
                     }
                 }
             }
@@ -395,7 +395,7 @@ public class KeypadActivity extends Activity implements
         @Override
         protected void onPostExecute(Void result) {
             if(exception != null) {
-                Log.d("MyApp", exception.toString());
+                Log.d("GDO", exception.toString());
 
                 Context ctx = getApplication().getBaseContext();
 
