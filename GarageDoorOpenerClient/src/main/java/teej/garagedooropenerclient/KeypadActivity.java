@@ -51,7 +51,7 @@ import javax.net.ssl.X509TrustManager;
 //  Dump log(cat) to file for reporting (new permission required)
 //  Get authorization result from server and notify user?
 //  Ensure certificate falls within validity range for every submittal, not just when imported?
-//  Socket connection timeout
+//  Socket connection timeout (Currently, effectively 2s because of 2s offer timeout for SUBMIT)
 
 public class KeypadActivity extends Activity implements
         View.OnClickListener,                // For buttons 0-9
@@ -242,9 +242,11 @@ public class KeypadActivity extends Activity implements
         }
 
         try {
-            eventQueue.offer(
-                    new Event(EventType.SUBMIT, code.getText().toString()),
-                    2, TimeUnit.SECONDS); // blocks, deliberately!
+            if(!eventQueue.offer( // Blocks, deliberately!
+                new Event(EventType.SUBMIT, code.getText().toString()), 2, TimeUnit.SECONDS)) {
+                Toast.makeText(getApplication().getBaseContext(),
+                        "Failed to connect to server!", Toast.LENGTH_SHORT).show();
+            }
         } catch (InterruptedException e) {}
 
         clearCode(null);
@@ -340,8 +342,10 @@ public class KeypadActivity extends Activity implements
 
                 while(true) {
                     Event e = eventQueue.poll(15, TimeUnit.SECONDS);
-                    // Small window here where state is about to be wrong for submitCode and onClick
-                    // and any events they add will be ignored/deleted/cleared
+                    // Small window here where state is about to be wrong for submitCode, and any
+                    // SUBMIT events it adds will not be handled (within the 2s timeout) because no
+                    // new async task will be created. Low likelihood because of time required to
+                    // perform all keypresses for a code (compared to handler code below).
                     synchronized (stateLock) {
                         if (e == null) {
                             state = State.DISCONNECTING;
