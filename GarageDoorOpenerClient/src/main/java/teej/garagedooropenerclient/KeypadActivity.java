@@ -1,13 +1,18 @@
 package teej.garagedooropenerclient;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.util.Base64;
 import android.util.Log;
 import android.view.MenuInflater;
@@ -150,6 +155,31 @@ public class KeypadActivity extends Activity implements
             clearButton.setEnabled(false);
             submitButton.setEnabled(false);
         }
+
+        requestAppPermissions();
+    }
+
+    private static int REQUEST_READ_STORAGE_REQUEST_CODE = 42;
+
+    private void requestAppPermissions() {
+        if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            return;
+        }
+
+        if (hasReadPermissions()) {
+            return;
+        }
+
+        ActivityCompat.requestPermissions(this,
+                new String[] {
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                }, REQUEST_READ_STORAGE_REQUEST_CODE);
+    }
+
+    private boolean hasReadPermissions() {
+        return (ContextCompat.checkSelfPermission(
+                getBaseContext(),
+                Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED);
     }
 
     // Called upon return from the settings or about activities

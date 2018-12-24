@@ -1,12 +1,17 @@
 package teej.garagedooropenerclient;
 
 import android.app.Activity;
+import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcel;
+import android.os.ParcelFileDescriptor;
+import android.provider.DocumentsContract;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
@@ -16,6 +21,7 @@ import android.widget.Toast;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -111,7 +117,7 @@ public class SettingsActivity extends Activity {
     private static final int FILE_SELECT_CODE = 0;
 
     public void showFileChooser(View v) {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.setType("*/*");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
 
@@ -127,17 +133,16 @@ public class SettingsActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case FILE_SELECT_CODE:
-                if (resultCode == RESULT_OK) {
+                if (resultCode == Activity.RESULT_OK) {
                     Uri uri = data.getData(); // Get the Uri of the selected file
                     Log.d("GDO", "File Uri: " + uri.toString());
 
-                    String path = uri.getPath(); // Get the path
-                    Log.d("GDO", "File Path: " + path);
+                    ContentResolver contentResolver = getApplicationContext().getContentResolver();
 
-                    // Make sure this file is a certificate
-                    FileInputStream fis;
-                    try { fis = new FileInputStream(path); }
-                    catch (FileNotFoundException e) {
+                    BufferedInputStream bis;
+                    try {
+                        bis = new BufferedInputStream(contentResolver.openInputStream(uri));
+                    } catch (FileNotFoundException e) {
                         Log.d("GDO", e.toString());
                         Toast.makeText(
                                 this, "Could not read the selected file!", Toast.LENGTH_LONG).show();
@@ -148,7 +153,7 @@ public class SettingsActivity extends Activity {
                     // knowing it is a X509 certificate file, which is detected in loadCertificate()
                     // by the generateCertificate() call.
                     try {
-                        loadCertificate(new BufferedInputStream(fis));
+                        loadCertificate(bis);
                     } catch(CertificateException e) {
                         Log.d("GDO", e.toString());
                         Toast.makeText(this,
@@ -159,13 +164,15 @@ public class SettingsActivity extends Activity {
                     // Accept this certificate (even if not yet/no longer valid) by storing it in
                     // encoded form in SharedPreferences
                     try {
-                        byte[] fileData = new byte[(int)fis.getChannel().size()];
-                        fis.getChannel().position(0); // Go back to the beginning of the file
+                        InputStream is = contentResolver.openInputStream(uri);
+                        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                        int nRead;
+                        byte[] byteData = new byte[8192];
+                        while((nRead = is.read(byteData, 0, byteData.length)) != -1) {
+                            buffer.write(byteData, 0, nRead);
+                        } buffer.flush();
 
-                        // Now it's safer to read the whole thing
-                        DataInputStream dis = new DataInputStream(new BufferedInputStream(fis));
-                        dis.readFully(fileData);
-                        dis.close();
+                        byte[] fileData = buffer.toByteArray();
 
                         // Certificate files should be small, so there shouldn't be much issue with
                         // storing them persistently in SharedPreferences instead of a file
